@@ -172,7 +172,7 @@ void mm_set(Obj handle, int i, Obj value) {
 	ptr[i] = value;
 }
 
-void mm_end(MM *mm) {
+void mm_free_blocks(MM *mm) {
 	uint64 i;
 	for (i = 0; i < mm->nblocks; i++) {
 		free(mm->blocks[i]);
@@ -295,23 +295,34 @@ int mm_structure_size(Obj handle) {
  *   de gc.
  * - Marca la estructura vieja como ya alcanzada.
  */
-void mm_gc_visit(MM *old_mm, MM *new_mm, Obj handle_src) {
-	if (!mm_is_handle(old_mm, handle_src)) {
+void mm_gc_visit(MM *old_mm, MM *new_mm, Obj *ptr) {
+	if (!mm_is_handle(old_mm, *ptr)) {
 		/* No es un handle */
 		return;
 	}
-	if (*OBJ_HANDLE_TO_PTR(handle_src) & OBJ_FLAG_REACH) {
-		/* Ya fue alcanzado anteriormente */
-		return;
-	}
-	int size = mm_structure_size(handle_src);
-	Obj handle_dst = mm_alloc(new_mm, size);
 
+	Obj handle_src = *ptr;
 	Obj *src = OBJ_HANDLE_TO_PTR(handle_src);
-	Obj *dst = OBJ_HANDLE_TO_PTR(handle_dst);
-	memcpy(dst, src, size * sizeof(Obj));
+	if (!(*src & OBJ_FLAG_REACH)) {
+		/* No fue alcanzado anteriormente */
 
-	*src = handle_dst | OBJ_FLAG_REACH;
+		/* Creo una copia de la estructura */
+		int size = mm_structure_size(handle_src);
+		Obj handle_dst = mm_alloc(new_mm, size);
+		Obj *dst = OBJ_HANDLE_TO_PTR(handle_dst);
+		memcpy(dst, src, size * sizeof(Obj));
+
+		/* Piso el primer objeto de la estructura vieja
+		 * con el "forward pointer" */
+		*src = handle_dst | OBJ_FLAG_REACH;
+	}
+
+	/* Actualizo la referencia a la estructura */
+	*ptr = *src;
+	OBJ_UNSET_FLAG_REACH(*ptr);
+	if (handle_src & OBJ_FLAG_CONTINUE) {
+		OBJ_SET_FLAG_CONTINUE(*ptr);
+	}
 }
 
 /*
@@ -328,10 +339,14 @@ void mm_gc_visit(MM *old_mm, MM *new_mm, Obj handle_src) {
  * - Libera todos los bloques viejos.
  */
 void mm_gc(MM *mm) {
+
+	/* Ordena los bloques por la posicion donde comienzan */
 	mm_sort_blocks(mm->blocks, 0, mm->nblocks);
 
-#include "push_registers.inc"
+	/* Guarda registros en la pila */
+#include "save_registers.inc"
 
+	/* Visita todas las estructuras alcanzables */
 	uint64 dummy = 0;
 	uint64 *stack_top = &dummy;
 
@@ -341,25 +356,25 @@ void mm_gc(MM *mm) {
 
 	uint64 *p;
 	for (p = stack_top; p < mm->stack_bottom; p++) {
-		mm_gc_visit(mm, new_mm, *p);
+		mm_gc_visit(mm, new_mm, p);
 	}
 
 	uint64 b;
 	int i;
 	for (b = 0; b < new_mm->nblocks; b++) {
 		for (i = 0; i < new_mm->blocks[b]->block_size; i++) {
-			mm_gc_visit(mm, new_mm, new_mm->blocks[b]->buffer[i]);
+			mm_gc_visit(mm, new_mm, &new_mm->blocks[b]->buffer[i]);
 		}
 	}
 
-	/* TODO */
-	/*_ recorrer los blocks copiando datos y punteros utiles
-	  _ por cada puntero util copiado, poner en su ubicacion original en el bloque, donde fue guardado ahora
+	/* Restaura registros de la pila */
+#include "restore_registers.inc"
 
-	  _ actualizar registros (¿llevarlos a la pila?)
-	  _ conseguir base pila
-	  _ usar base y tope de pila para actualizar la pila
-	*/
+	/* Libera la memoria del MM viejo */
+	mm_free_blocks(mm);
+
+	/* Ahora new_mm pasa a ser el MM actual */
+	memcpy(mm, new_mm, sizeof(MM));
 }
 
 void test_mm_sort_blocks() 
@@ -479,7 +494,7 @@ void test_mm_is_handle() {
 	}
 
 #undef NTESTS
-	mm_end(&mm);
+	mm_free_blocks(&mm);
 }
 
 int main() {
@@ -506,7 +521,7 @@ int main() {
 
 	mm_gc(&mm);
 
-	mm_end(&mm);
+	mm_free_blocks(&mm);
 
 	/*printf("-----\n");*/
 	/*test_mm_sort_blocks();*/
