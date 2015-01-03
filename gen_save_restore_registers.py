@@ -15,16 +15,24 @@ f.write('\t * No se guardan los registros rsp ni rbp, porque\n')
 f.write('\t * nunca deberian contener handles que apunten al\n')
 f.write('\t * heap.\n')
 f.write('\t */\n')
-f.write('\tuint64 registers[%u];\n' % (n,))
+f.write('#define NREGISTERS %u\n' % (n,))
+f.write('\tuint64 registers[NREGISTERS];\n')
+f.write('\t{\n')
+f.write('\t\tint i;\n')
+f.write('\t\tfor (i = 0; i < NREGISTERS; i++) {\n')
+f.write('\t\t\tregisters[i] = 0;\n')
+f.write('\t\t}\n')
+f.write('\t}\n')
 f.write('\t__asm__ __volatile__(\n')
 i = 0
 for reg in registers:
-    f.write('\t\t"movq %%' + reg + ', %' + str(i) + ';\\t\\n"\n')
+    f.write('\t\t"movq %%' + reg + ', %' + str(i) + '\\n\\t"\n')
     i += 1
-f.write('\t:')
+f.write('\t:\n')
 for i in range(n):
     f.write('\t\t"=m"(registers[' + str(i) + '])' + (',\n' if i < n - 1 else '\n'))
 f.write('\t);\n')
+f.write('#undef NREGISTERS\n')
 f.close()
 
 f = file('restore_registers.inc', 'w')
@@ -36,7 +44,7 @@ f.write('\t */\n')
 f.write('\t__asm__ __volatile__(\n')
 i = 0
 for reg in registers:
-    f.write('\t\t"movq %' + str(i) + ', %%' + reg + ';\\t\\n"\n')
+    f.write('\t\t"movq %' + str(i) + ', %%' + reg + '\\n\\t"\n')
     i += 1
 f.write('\t:\n')
 f.write('\t:\n')
@@ -45,6 +53,7 @@ for i in range(n):
 # clobber
 f.write('\t:\n')
 f.write('\t\t/* Lista de registros modificados */\n')
+#f.write('\t\t' + ', '.join(['"' + reg + '"' for reg in registers + ['memory']]) + '\n')
 f.write('\t\t' + ', '.join(['"' + reg + '"' for reg in registers]) + '\n')
 f.write('\t);\n')
 f.close()

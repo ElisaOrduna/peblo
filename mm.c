@@ -1,90 +1,28 @@
+#include "mm.h"
+
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <time.h>
+#include <strings.h>
 #include <assert.h>
 
-typedef unsigned long long int uint64;
-typedef uint64 Obj;
+#if MM_VALGRIND_COMPATIBILITY
+#include <valgrind/memcheck.h>
+#endif
 
-/*
- * Los ultimos 3 bits de un objeto son flags que representan:
- *
- *   0x1: si este objeto es la continuacion de una estructura
- *        (una estructura es un arreglo de objetos,
- *        el primero tiene este flag en 0 y los siguientes
- *        en 1).
- *   0x2: si esta estructura ya fue alcanzada por el
- *        proceso de garbage collection.
- *   0x4: si este objeto es un handle que representa un
- *        puntero a otro objeto (en caso contrario se trata
- *        de un valor inmediato).
- *
- */
+#define MAX(X, Y)	(((X) < (Y)) ? (Y) : (X))
 
-#define OBJ_FLAG_CONTINUE	((Obj)0x1)
-#define OBJ_FLAG_REACH		((Obj)0x2)
-#define OBJ_FLAG_HANDLE		((Obj)0x4)
-#define OBJ_ALL_FLAGS		(OBJ_FLAG_CONTINUE | OBJ_FLAG_REACH | OBJ_FLAG_HANDLE)
-
-#define OBJ_SET_FLAG(X, F) 		((X) = (X) | (F))
-#define OBJ_UNSET_FLAG(X, F) 		((X) = (X) & ~(F))
-#define OBJ_SET_FLAG_CONTINUE(X) 	OBJ_SET_FLAG(X, OBJ_FLAG_CONTINUE)
-#define OBJ_UNSET_FLAG_CONTINUE(X) 	OBJ_UNSET_FLAG(X, OBJ_FLAG_CONTINUE)
-#define OBJ_SET_FLAG_REACH(X) 		OBJ_SET_FLAG(X, OBJ_FLAG_REACH)
-#define OBJ_UNSET_FLAG_REACH(X) 	OBJ_UNSET_FLAG(X, OBJ_FLAG_REACH)
-#define OBJ_SET_FLAG_HANDLE(X) 		OBJ_SET_FLAG(X, OBJ_FLAG_HANDLE)
-#define OBJ_UNSET_FLAG_HANDLE(X)	OBJ_UNSET_FLAG(X, OBJ_FLAG_HANDLE)
-
-/* OBJ_PTR_TO_HANDLE toma un puntero a Obj,
- * y lo castea a un Obj que es un handle que
- * representa dicho puntero (setea OBJ_FLAG_HANDLE).
- *
- * OBJ_HANDLE_TO_PTR hace el trabajo inverso,
- * y apaga todas las flags.
- */
-#define OBJ_PTR_TO_HANDLE(P)	(((Obj)(P)) | OBJ_FLAG_HANDLE)
-#define OBJ_HANDLE_TO_PTR(H)	((Obj *)((H) & ~OBJ_ALL_FLAGS))
-
-#define OBJ_EMPTY	0
-
-#define BLOCK_CAPACITY	10
-
-/*
- * La memoria se organiza en bloques.
- * Cada bloque es un buffer de objetos.
- */
-typedef struct _block {
-	Obj buffer[BLOCK_CAPACITY];
-	int block_size;
-} Block;
-
-/*
- * Un memory manager consta de muchos bloques.
- * La secuencia de bloques se guarda como un arreglo
- * de punteros a bloque (redimensionando al doble
- * del tamanyo en cuanto necesita crecer).
- *
- * Tambien se guarda un puntero al inicio de la pila
- * en el momento en el que comenzo la ejecucion del
- * programa. Esto es para poder visitar todos los
- * objetos alcanzables durante la recoleccion.
- */
-typedef struct _mm {
-	Block **blocks;
-	uint64 capacity;
-	uint64 nblocks;
-	uint64 *stack_bottom;
-} MM;
-
-void mm_init_block(Block *b) {
-	int i;
-	for (i = 0; i < BLOCK_CAPACITY; i++) {
-		b->buffer[i] = OBJ_EMPTY;
-	}
-	b->block_size = 0;
+/* Devuelve el valor que tiene el stack pointer
+ * actualmente */
+uint64 *mm_stack_pointer_current() {
+	return mm_stack_pointer_orig();
 }
 
+void mm_init_block(Block *b) {
+	b->block_size = 0;
+	bzero(b->buffer, BLOCK_CAPACITY * sizeof(Obj));
+}
+
+#define MIN_THRESHOLD	3
 void mm_init(MM *mm, uint64 *stack_bottom) {
 	mm->blocks = malloc(sizeof(Block *));
 	mm->blocks[0] = malloc(sizeof(Block));
@@ -92,6 +30,7 @@ void mm_init(MM *mm, uint64 *stack_bottom) {
 	mm->capacity = 1;
 	mm->nblocks = 1;
 	mm->stack_bottom = stack_bottom;
+	mm->gc_threshold = MIN_THRESHOLD;
 }
 
 /*
@@ -100,6 +39,7 @@ void mm_init(MM *mm, uint64 *stack_bottom) {
  * el primero de los cuales tiene el flag
  * OBJ_FLAG_CONTINUE en 0, y los siguientes en 1.
  */
+static
 void mm_init_structure(Obj *obj, int obj_size) {
 	int i;
 	OBJ_UNSET_FLAG_CONTINUE(obj[0]);
@@ -112,6 +52,7 @@ void mm_init_structure(Obj *obj, int obj_size) {
  * Se fija si el arreglo de bloques esta lleno
  * y en tal caso lo redimensiona al doble del tamanyo.
  */
+static
 void mm_grow_blocks_if_full(MM *mm) {
 	if (mm->nblocks < mm->capacity) {
 		return;
@@ -135,6 +76,12 @@ Obj mm_alloc(MM *mm, int obj_size) {
 	assert(1 <= obj_size && obj_size <= BLOCK_CAPACITY);
 	Block *last_block = mm->blocks[mm->nblocks - 1];
 	if (last_block->block_size + obj_size >= BLOCK_CAPACITY) {
+		/* Si supera el umbral, se hace garbage collection */
+		if (mm->nblocks + 1 > mm->gc_threshold) {
+			mm_gc(mm);
+			return mm_alloc(mm, obj_size);
+		}
+
 		/* Nota:
 		 *   Se compara mediante ">=" con BLOCK_CAPACITY para
 		 *   asegurarse de que el ultimo objeto del bloque
@@ -272,6 +219,7 @@ int mm_is_handle(MM *mm, Obj obj) {
  * objetos, el primero de los cuales tiene el
  * OBJ_FLAG_CONTINUE en 0, y los siguientes en 1.
  */
+static
 int mm_structure_size(Obj handle) {
 	Obj *p = OBJ_HANDLE_TO_PTR(handle);
 	int size = 1;
@@ -295,7 +243,13 @@ int mm_structure_size(Obj handle) {
  *   de gc.
  * - Marca la estructura vieja como ya alcanzada.
  */
+static
 void mm_gc_visit(MM *old_mm, MM *new_mm, Obj *ptr) {
+
+#if MM_VALGRIND_COMPATIBILITY
+	VALGRIND_MAKE_MEM_DEFINED(ptr, sizeof(Obj));
+#endif
+
 	if (!mm_is_handle(old_mm, *ptr)) {
 		/* No es un handle */
 		return;
@@ -339,195 +293,46 @@ void mm_gc_visit(MM *old_mm, MM *new_mm, Obj *ptr) {
  * - Libera todos los bloques viejos.
  */
 void mm_gc(MM *mm) {
+	uint64 *p = NULL;
+	uint64 b = 0;
+	int i = 0;
+	MM _new_mm;
+	MM *new_mm = &_new_mm;
+
+	/* Crea un nuevo memory manager, poniendo su
+	 * umbral en MAX_UINT64 para evitar que se produzcan 
+	 * garbage collections anidadas. 
+	 */
+	mm_init(new_mm, mm->stack_bottom);
+	new_mm->gc_threshold = MAX_UINT64;
+
+	/* Guarda registros en la pila */
+	#include "save_registers.inc"
+
+	uint64 *stack_top = mm_stack_pointer_current();
 
 	/* Ordena los bloques por la posicion donde comienzan */
 	mm_sort_blocks(mm->blocks, 0, mm->nblocks);
 
-	/* Guarda registros en la pila */
-#include "save_registers.inc"
-
 	/* Visita todas las estructuras alcanzables */
-	uint64 dummy = 0;
-	uint64 *stack_top = &dummy;
-
-	MM _new_mm;
-	MM *new_mm = &_new_mm;
-	mm_init(new_mm, mm->stack_bottom);
-
-	uint64 *p;
 	for (p = stack_top; p < mm->stack_bottom; p++) {
 		mm_gc_visit(mm, new_mm, p);
 	}
 
-	uint64 b;
-	int i;
 	for (b = 0; b < new_mm->nblocks; b++) {
 		for (i = 0; i < new_mm->blocks[b]->block_size; i++) {
 			mm_gc_visit(mm, new_mm, &new_mm->blocks[b]->buffer[i]);
 		}
 	}
 
-	/* Restaura registros de la pila */
-#include "restore_registers.inc"
-
 	/* Libera la memoria del MM viejo */
 	mm_free_blocks(mm);
 
 	/* Ahora new_mm pasa a ser el MM actual */
 	memcpy(mm, new_mm, sizeof(MM));
-}
+	mm->gc_threshold = MAX(2 * mm->nblocks, MIN_THRESHOLD);
 
-void test_mm_sort_blocks() 
-{
-	int n = 1000;
-	int i;
-	Block **bs;
-	bs = malloc(sizeof(Block *) * n);
-	for (i = 0; i < n; i++) {
-		bs[i] = (void *)random();
-	}
-
-	printf("bloques:\n");
-	for (i = 0; i < n; i++) {
-		printf("\t%llu\n", (uint64)(&bs[i]->buffer[0]));
-	}
-	printf("\n");
-
-	mm_sort_blocks(bs, 0, n);
-
-	for (i = 0; i < n - 1; i++) {
-		assert((uint64)(&bs[i]->buffer[0]) <= (uint64)(&bs[i + 1]->buffer[0]));
-	}
-
-	printf("bloques:\n");
-	for (i = 0; i < n; i++) {
-		printf("\t%llu\n", (uint64)(&bs[i]->buffer[0]));
-	}
-	printf("\n");
-}
-
-void test_mm_is_handle() {
-	srandom(time(NULL));
-
-	uint64 dummy = 0;
-	MM mm;
-	int i, j, k;
-	int object_count = 0;
-	mm_init(&mm, &dummy);
-	free(mm.blocks);
-
-	mm.nblocks = 5;
-	mm.blocks = malloc(sizeof(Block *) * mm.nblocks);
-	for (i = 0; i < mm.nblocks; i++) {
-		mm.blocks[i] = malloc(sizeof(Block));
-		mm_init_block(mm.blocks[i]);
-		mm.blocks[i]->block_size = (i + 1 < BLOCK_CAPACITY) ? i + 1 : BLOCK_CAPACITY;
-		object_count += mm.blocks[i]->block_size;
-	}
-
-	Obj *positives = malloc(sizeof(Obj) * object_count);
-	j = 0;
-
-	for (i = 0; i < mm.nblocks; i++) {
-		for (k = 0; k < mm.blocks[i]->block_size; k++) {
-			positives[j] = OBJ_PTR_TO_HANDLE(&mm.blocks[i]->buffer[k]);
-			j++;
-		}
-	}
-	
-	mm_sort_blocks(mm.blocks, 0, mm.nblocks);
-
-	printf("blocks: ");
-	for (i = 0; i < mm.nblocks; i++) {
-		printf("[%llu , +(%llu) , %llu) ",
-			(uint64)(&mm.blocks[i]->buffer[0]),
- 			(uint64)mm.blocks[i]->block_size * sizeof(Obj),
-			(uint64)(&mm.blocks[i]->buffer[0]) + mm.blocks[i]->block_size * sizeof(Obj));
-	}
-	printf("\n");
-
-	for (j = 0; j < object_count; j++) {
-		printf("checking handle [+]: %llu\n", positives[j]);
-		assert(mm_is_handle(&mm, positives[j]));
-	}
-
-	for (i = 0; i < mm.nblocks; i++) {
-		Obj negative = OBJ_PTR_TO_HANDLE(&mm.blocks[i]->buffer[0] - sizeof(Obj));
-		int is_negative = 1;
-		for (j = 0; j < object_count; j++) {
-			if (positives[j] == negative) {
-				is_negative = 0;
-			}
-		}
-		if (is_negative) {
-			printf("checking handle [-]: %llu\n", negative);
-			assert(!mm_is_handle(&mm, negative));
-		}
-	}
-
-	for (i = 0; i < mm.nblocks; i++) {
-		Obj negative = OBJ_PTR_TO_HANDLE(&mm.blocks[i]->buffer[mm.blocks[i]->block_size - 1] + sizeof(Obj));
-		int is_negative = 1;
-		for (j = 0; j < object_count; j++) {
-			if (positives[j] == negative) {
-				is_negative = 0;
-			}
-		}
-		if (is_negative) {
-			printf("checking handle [-]: %llu\n", negative);
-			assert(!mm_is_handle(&mm, negative));
-		}
-	}
-
-	for (i = 0; i < 1000; i++) {
-		Obj negative = OBJ_PTR_TO_HANDLE(random());
-		int is_negative = 1;
-		for (j = 0; j < object_count; j++) {
-			if (positives[j] == negative) {
-				is_negative = 0;
-			}
-		}
-		if (is_negative) {
-			printf("checking handle [-]: %llu\n", negative);
-			assert(!mm_is_handle(&mm, negative));
-		}
-	}
-
-#undef NTESTS
-	mm_free_blocks(&mm);
-}
-
-int main() {
-	uint64 dummy = 0;
-	MM mm;
-	mm_init(&mm, &dummy);
-
-	Obj handle_obj1 = mm_alloc(&mm, 2);
-	Obj handle_obj2 = mm_alloc(&mm, 9);
-	int i;
-	for (i = 1; i < 1000; i++) {
-		handle_obj2 = mm_alloc(&mm, 9);
-	}
-
-	mm_set(handle_obj1, 0, handle_obj2);
-	mm_set(handle_obj1, 1, handle_obj2);
-	mm_set(handle_obj2, 0, handle_obj1);
-
-	printf("%llu\n", handle_obj1);
-	printf("%llu\n", handle_obj2);
-	printf("%llu\n", OBJ_HANDLE_TO_PTR(handle_obj1)[0]);
-	printf("%llu\n", OBJ_HANDLE_TO_PTR(handle_obj1)[1]);
-	printf("%llu\n", OBJ_HANDLE_TO_PTR(handle_obj2)[0]);
-
-	mm_gc(&mm);
-
-	mm_free_blocks(&mm);
-
-	/*printf("-----\n");*/
-	/*test_mm_sort_blocks();*/
-	/*test_mm_is_handle();*/
-
-
-	return 0;
+	/* Restaura registros de la pila */
+	#include "restore_registers.inc"
 }
 
