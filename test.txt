@@ -1,0 +1,12 @@
+
+
+
+  let x = 29832398 in
+    x < hola
+  fun x => fun y => manzana in verde apuros          
+  > >= < <= == !=
+
+
+
+
+
