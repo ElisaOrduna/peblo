@@ -1,12 +1,34 @@
 
+let
+  type AB a = Nil | Bin a (AB a) a
+  var max =
+    fun (x : Int) (y : Int) : Int => 
+      case x > y of
+      | True  => x
+      | False => y
+      end
+  var altura : AB a -> Int =
+    fun a =>
+      case a of
+      | Nil       => 0
+      | Bin i r d => 1 + max (altura i) (altura d)
+      end
+in
+  altura (Bin Nil 10 (Bin Nil 2 Nil))
 
+------------------------------------------------------
 
   let x = 29832398 in
     x < hola
   fun x => fun y => manzana in verde apuros          
   > >= < <= == !=
+  && || + - *%/
+  case x of 
+  	| BIN = batura
+	| NIL = pancha
 
-
-
+  -> =>
+  - >
+var type and case of
 
 
