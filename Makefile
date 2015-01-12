@@ -1,14 +1,19 @@
 
-.PHONY : clean
+.PHONY : all clean
 
-INCS=mm.h
+MM_INCS=mm.h
 
 CFLAGS= -Wall -g -ggdb
 
-unittest : unittest.c mm.o $(INCS)
+all : unittest parser
+
+unittest : unittest.c mm.o $(MM_INCS)
 	gcc -o unittest unittest.c mm.o $(CFLAGS)
 
-mm.o : mm.c save_registers.inc restore_registers.inc $(INCS)
+parser : tokenizer.h tokenizer.cpp
+	g++ -o parser tokenizer.h tokenizer.cpp
+
+mm.o : mm.c save_registers.inc restore_registers.inc $(MM_INCS)
 	gcc -c -o mm.o mm.c $(CFLAGS)
 
 save_registers.inc restore_registers.inc : gen_save_restore_registers.py
