@@ -11,7 +11,7 @@ unittest : unittest.c mm.o $(MM_INCS)
 	gcc -o unittest unittest.c mm.o $(CFLAGS)
 
 parser : tokenizer.h tokenizer.cpp parser.cpp
-	g++ -o parser parser.cpp tokenizer.cpp
+	g++ -o parser parser.cpp tokenizer.cpp $(CFLAGS)
 
 mm.o : mm.c save_registers.inc restore_registers.inc $(MM_INCS)
 	gcc -c -o mm.o mm.c $(CFLAGS)

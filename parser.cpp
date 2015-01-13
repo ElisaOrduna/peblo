@@ -18,11 +18,11 @@ struct AST {
 	Token token;
 	vector<AST*> children;
 
-	void show(ostream& os, int level) const;
+	void show(ostream& os, unsigned int level) const;
 };
 
-void AST::show(ostream& os, int level) const {
-	int i;
+void AST::show(ostream& os, unsigned int level) const {
+	unsigned int i;
 	for (i = 0; i < level; i++) {
 		os << "  ";
 	}
@@ -100,7 +100,9 @@ AST* Parser::parse_expression(void) {
 		AST* res = new AST();
 		cout << "es un case" << endl;
 		//TODO
+		return res;
 	} else {
+		// Aplicacion
 		vector<AST*> exprs;
 		exprs.push_back(parse_atom());
 		while (!is_terminator(_tokenizer.peek().type)) {
@@ -108,7 +110,7 @@ AST* Parser::parse_expression(void) {
 		}
 	
 		AST* res = exprs[0];
-		int i;
+		unsigned int i;
 		for (i = 1; i < exprs.size(); i++) {
 			AST* ast = new AST();
 			ast->kind = AST_APP;
