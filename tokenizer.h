@@ -16,7 +16,7 @@ typedef enum {
 	TOK_CASE,
 	TOK_OF,
 	TOK_END,
-	/* Operadores */
+	/* Simbolos */
 	TOK_DEF,	// =
 	TOK_EQ,		// ==
 	TOK_NE,		// !=
@@ -39,6 +39,9 @@ typedef enum {
 	TOK_OR,		// ||
 	TOK_PIPE,	// |
 	TOK_ARROW,	// ->
+	/* End of file */
+	TOK_BOF,
+	TOK_EOF,
 } TokenType;
 
 struct Token {
@@ -56,7 +59,6 @@ class Tokenizer {
 		std::istream& _is;
 		Token _last_token;
 		int _char;
-		bool _eof;
 };
 
 #endif

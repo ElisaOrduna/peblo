@@ -14,16 +14,18 @@ using namespace std;
 
 Tokenizer::Tokenizer(istream& is) : _is(is) {
 	if (_is.eof()) {
-		_eof = true;
+		_last_token.type = TOK_EOF;
+		_last_token.value = "";
 	} else {
-		_eof = false;
+		_last_token.type = TOK_BOF;
+		_last_token.value = "";
 		_char = _is.get();
 		next();
 	}
 }
 
 bool Tokenizer::eof(void) const {
-	return _is.eof();
+	return _last_token.type == TOK_EOF;
 }
 
 Token Tokenizer::peek(void) const {
@@ -36,7 +38,8 @@ void Tokenizer::next(void) {
 	}
 
 	if (_char == EOF) {
-		_eof = true;
+		_last_token.type = TOK_EOF;
+		_last_token.value = "";
 		return;
 	}
 	
@@ -190,15 +193,3 @@ void Tokenizer::next(void) {
 	}
 }
 
-#include <fstream>
-
-int main() {
-	ifstream input("test.txt");
-	Tokenizer tok(input);
-	while (!tok.eof()) {
-		Token t = tok.peek();
-		cout << "lei <type=" << t.type << ", value=[[ " << t.value << " ]]>" << endl;
-		tok.next();
-	}
-	return 0;
-}
