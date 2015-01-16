@@ -1,3 +1,18 @@
-fun x (y : Int) =>
-  fun (z : Bool) : Tupla ((a -> b) -> c -> d) (Arbol Int) -> Nat => 
-    Bin (Bin Nil 1 Nil) 0 (Bin Nil 1 Nil)
+let type Tripla a b c = NIL
+	var x = t
+	type TUP a b = Case a | Match b a
+    var y : Bool = True
+ in
+  case arbol of 
+  | Nil => 1
+  | Bin i r d =>
+     fun x =>
+       case x of
+       | Nil          => 1
+       | Bin ii rr dd =>
+           fun x (y : Int) =>
+             fun (z : Bool) : Tupla ((a -> b) -> c -> d) (Arbol Int) -> Nat =>
+               Bin (Bin Nil 1 Nil) 0 (Bin Nil 1 Nil)
+       end
+   end
+
