@@ -1,0 +1,95 @@
+
+### Simbolos terminales
+
+<upperid> ::= [A-Z][_a-zA-Z0-9]*   # Identificador que comienza con mayuscula
+<lowerid> ::= [_a-z][_a-zA-Z0-9]*  # Identificador que comienza con minuscula
+<number>  ::= [0-9]+               # Numero
+
+# Operadores
+
+  # Unarios
+
+    !
+    -
+
+  # Binarios
+
+    # Logicos
+
+      &&
+      ||
+
+    # Relacionales
+
+      ==
+      !=
+      <=
+      <
+      >
+      >=
+
+    # Aritmeticos
+
+      +
+      -
+      *
+      /
+      %
+
+# Palabras reservadas y simbolos de puntuacion
+
+  fun
+  case
+  of
+  end
+  let
+  var
+  type
+  in
+  :
+  =
+  =>
+  ->
+  |
+
+### Sintaxis
+
+<expr> ::= <lowerid>       # Variable
+         | <upperid>       # Constructor
+         | <expr> <expr>   # Aplicacion de una funcion a un parametro
+
+         # Funcion anonima
+         | fun <params> [: <tipo>]? => <expr>
+
+         # Pattern matching
+         | case <expr> of <cases> end
+
+         # Declaraciones locales
+         | let <decls> in <expr>
+
+<params> ::= [<param>]+
+<param>  ::= <lowerid>                # Parametro sin tipo
+           | ( <lowerid> : <tipo> )   # Parametro con tipo
+
+<cases>  ::= [<case>]+
+<case>   ::= PIPE <patron> => <expr>
+  donde PIPE es el simbolo '|'
+
+<decls> ::= [<decl>]*
+<decl>  ::= <declaracion_de_tipo>
+          | <declaracion_de_variable>
+
+<declaracion_de_tipo> ::= type <upperid> [<lowerid>]* = <constructores>
+<constructores> ::= <constructor> [PIPE <constructor>]*
+<constructor> ::= <upperid> [<tipo>]*
+
+<declaracion_de_variable> ::= var <lowerid> [: <tipo>]? = <expr>
+
+<patron> ::= <lowerid>
+           | <upperid> [<patron>]*
+
+<tipo> ::= <tipo_atomico>
+         | <tipo_atomico> -> <tipo>
+<tipo_atomico> ::= <lowerid>                # Variable de tipos
+                 | <upperid> [<lowerid>]*   # Constructor de tipos
+
