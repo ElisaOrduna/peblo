@@ -1,1 +1,16 @@
-!---x * y == -8 || !!!!true && false
+let
+  type AB a = Nil | Bin a (AB a) a
+  var max =
+    fun (x : Int) (y : Int) : Int => 
+      case x > y of
+      | True  => x
+      | False => y
+      end
+  var altura : AB a -> Int =
+    fun a =>
+      case a of
+      | Nil       => 0
+      | Bin i r d => 1 + max (altura i) (altura d)
+      end
+in
+  altura (Bin Nil 10 (Bin Nil 2 Nil))

@@ -1,42 +1,6 @@
-#include <cstdlib>
-#include <vector>
-#include "tokenizer.h"
+#include "parser.h"
 
 using namespace std;
-
-typedef enum {
-	AST_CONSTRUCTOR = 1,
-	AST_VARIABLE,
-	AST_CONSTANT,
-	AST_APP,
-	AST_CASE,
-	AST_FUN,
-	AST_LET,
-	AST_UNOP,
-	AST_BINOP,
-	AST_TYPE_DECLARATION,
-	AST_VARIABLE_DECLARATION,
-	AST_CONSTRUCTOR_DECLARATION,
-	AST_PARAMETER,
-	AST_TYPE_CONSTRUCTOR,
-	AST_TYPE_VAR,
-	AST_TYPE_ARROW,
-} ASTKind;
-
-#define AST_APP_FUNCTION	0
-#define AST_APP_ARGUMENT	1
-
-#define AST_FUN_PARAM		0
-#define AST_FUN_RETTYPE		1
-#define AST_FUN_BODY		2
-
-struct AST {
-	ASTKind kind;
-	Token token;
-	vector<AST*> children;
-
-	void show(ostream& os, unsigned int level = 0) const;
-};
 
 void AST::show(ostream& os, unsigned int level) const {
 	unsigned int i;
@@ -58,37 +22,6 @@ void AST::show(ostream& os, unsigned int level) const {
 	}
 	os << ")"; 
 }
-
-typedef enum {
-	OPERATOR_UNARY,
-	OPERATOR_BINARY,
-} OperatorArity;
-
-class Parser {
-	public:
-		Parser(Tokenizer& t);
-		
-		AST* parse_atom(void);
-		AST* parse_expression(void);
-		AST* parse_application(void);
-		AST* parse_operators(unsigned int level);
-		AST* parse_type(void);
-		AST* parse_type_atom(bool allow_parameters);
-		AST* parse_fun(void);
-		AST* parse_let(void);
-		AST* parse_type_declaration(void);
-		AST* parse_constructor_declaration(void);
-		AST* parse_variable_declaration(void);
-		AST* parse_case(void);
-		AST* parse_parameter(void);
-	private:
-		Tokenizer& _tokenizer;
-		vector<vector<TokenType > > _precedence_table;
-		vector<OperatorArity> _arity_table;
-
-		void assert_type(TokenType t);
-		bool is_operator_at_level(TokenType t, unsigned int level);
-};
 
 Parser::Parser(Tokenizer& t) : _tokenizer(t) {
 	_precedence_table = vector<vector<TokenType> >(9);
@@ -566,3 +499,4 @@ int main() {
 
 	return 0;
 }
+
