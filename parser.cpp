@@ -12,6 +12,8 @@ typedef enum {
 	AST_CASE,
 	AST_FUN,
 	AST_LET,
+	AST_UNOP,
+	AST_BINOP,
 	AST_TYPE_DECLARATION,
 	AST_VARIABLE_DECLARATION,
 	AST_CONSTRUCTOR_DECLARATION,
@@ -57,12 +59,19 @@ void AST::show(ostream& os, unsigned int level) const {
 	os << ")"; 
 }
 
+typedef enum {
+	OPERATOR_UNARY,
+	OPERATOR_BINARY,
+} OperatorArity;
+
 class Parser {
 	public:
 		Parser(Tokenizer& t);
 		
 		AST* parse_atom(void);
 		AST* parse_expression(void);
+		AST* parse_application(void);
+		AST* parse_operators(unsigned int level);
 		AST* parse_type(void);
 		AST* parse_type_atom(bool allow_parameters);
 		AST* parse_fun(void);
@@ -74,10 +83,40 @@ class Parser {
 		AST* parse_parameter(void);
 	private:
 		Tokenizer& _tokenizer;
+		vector<vector<TokenType > > _precedence_table;
+		vector<OperatorArity> _arity_table;
+
 		void assert_type(TokenType t);
+		bool is_operator_at_level(TokenType t, unsigned int level);
 };
 
-Parser::Parser(Tokenizer& t) : _tokenizer(t) {}
+Parser::Parser(Tokenizer& t) : _tokenizer(t) {
+	_precedence_table = vector<vector<TokenType> >(9);
+	_arity_table = vector<OperatorArity>(9, OPERATOR_BINARY);
+	
+	// Operadores logicos
+	_precedence_table[0].push_back(TOK_OR);
+	_precedence_table[1].push_back(TOK_AND);
+	_precedence_table[2].push_back(TOK_NOT); // Unario
+	_arity_table[2] = OPERATOR_UNARY;
+
+	// Operadores relacionales
+	_precedence_table[3].push_back(TOK_EQ);
+	_precedence_table[3].push_back(TOK_NE);
+	_precedence_table[3].push_back(TOK_GE);
+	_precedence_table[3].push_back(TOK_GT);
+	_precedence_table[3].push_back(TOK_LE);
+	_precedence_table[3].push_back(TOK_LT);
+
+	// Operadores aritmeticos
+	_precedence_table[4].push_back(TOK_PLUS);
+	_precedence_table[5].push_back(TOK_MINUS);
+	_precedence_table[6].push_back(TOK_MUL);
+	_precedence_table[7].push_back(TOK_DIV);
+	_precedence_table[7].push_back(TOK_MOD);
+	_precedence_table[8].push_back(TOK_MINUS); // Unario
+	_arity_table[8] = OPERATOR_UNARY;
+}
 
 AST* Parser::parse_atom(void) {
 	Token t = _tokenizer.peek();
@@ -117,7 +156,7 @@ AST* Parser::parse_atom(void) {
 	}
 }
 
-bool is_expression_terminator(TokenType t) {
+bool is_application_terminator(TokenType t) {
 	return		t == TOK_EOF
 		||	t == TOK_RPAREN
 		||	t == TOK_OF
@@ -126,7 +165,22 @@ bool is_expression_terminator(TokenType t) {
 		||	t == TOK_END
 		||	t == TOK_VAR
 		||	t == TOK_TYPE
-		||	t == TOK_IN;
+		||	t == TOK_IN
+		// Operadores
+		||	t == TOK_OR
+		||	t == TOK_AND
+		||	t == TOK_NOT
+		||	t == TOK_EQ
+		||	t == TOK_NE
+		||	t == TOK_GE
+		||	t == TOK_GT
+		||	t == TOK_LE
+		||	t == TOK_LT
+		||	t == TOK_PLUS
+		||	t == TOK_MINUS
+		||	t == TOK_MUL
+		||	t == TOK_DIV
+		||	t == TOK_MOD;
 }
 
 bool is_parameter_terminator(TokenType t) {
@@ -420,6 +474,61 @@ AST* Parser::parse_case(void) {
 	return res;
 }
 
+AST* Parser::parse_application(void) {
+	AST* res = parse_atom();
+	while (!is_application_terminator(_tokenizer.peek().type)) {
+		AST* ast = new AST();
+		ast->kind = AST_APP;
+		ast->children.push_back(res);
+		ast->children.push_back(parse_atom());
+		res = ast;
+	}
+	return res;
+}
+
+bool Parser::is_operator_at_level(TokenType t, unsigned int level) {
+	unsigned int j;
+	for (j = 0; j < _precedence_table[level].size(); j++) {
+		if (_precedence_table[level][j] == t) {
+			return true;
+		}
+	}
+	return false;
+}
+
+AST* Parser::parse_operators(unsigned int level) {
+	if (level == _precedence_table.size()) {
+		return parse_application();	
+	}
+
+	if (_arity_table[level] == OPERATOR_UNARY) {
+		if (is_operator_at_level(_tokenizer.peek().type, level)) {
+			AST* res = new AST();
+			res->kind = AST_UNOP;
+			res->token = _tokenizer.peek();
+			_tokenizer.next();
+
+			res->children.push_back(parse_operators(level));
+			return res;
+		} else {
+			return parse_operators(level + 1);
+		}
+	} else {
+		AST* res = parse_operators(level + 1);
+		while (is_operator_at_level(_tokenizer.peek().type, level)) {
+			AST* aux = new AST();
+			aux->kind = AST_BINOP;
+			aux->token = _tokenizer.peek();
+			_tokenizer.next();
+
+			aux->children.push_back(res);
+			aux->children.push_back(parse_operators(level + 1));
+			res = aux;
+		}
+		return res;
+	}
+}
+
 AST* Parser::parse_expression(void) {
 	Token t = _tokenizer.peek();
 
@@ -430,16 +539,7 @@ AST* Parser::parse_expression(void) {
 	} else if (t.type == TOK_LET) {
 		return parse_let();
 	} else {
-		// Aplicacion
-		AST* res = parse_atom();
-		while (!is_expression_terminator(_tokenizer.peek().type)) {
-			AST* ast = new AST();
-			ast->kind = AST_APP;
-			ast->children.push_back(res);
-			ast->children.push_back(parse_atom());
-			res = ast;
-		}
-		return res;
+		return parse_operators(0);
 	}
 }
 
