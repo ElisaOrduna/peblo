@@ -1,7 +1,6 @@
 #ifndef __PARSER_H__
 #define __PARSER_H__
 
-#include <cstdlib>
 #include <vector>
 #include "tokenizer.h"
 
@@ -39,17 +38,22 @@ struct AST {
 	void show(std::ostream& os, unsigned int level = 0) const;
 };
 
-typedef enum {
-	OPERATOR_UNARY,
-	OPERATOR_BINARY,
-} OperatorArity;
-
 class Parser {
 	public:
 		Parser(Tokenizer& t);
-		
-		AST* parse_atom(void);
 		AST* parse_expression(void);
+	private:
+		Tokenizer& _tokenizer;
+
+		typedef enum {
+			OPERATOR_UNARY,
+			OPERATOR_BINARY,
+		} OperatorArity;
+
+		std::vector<std::vector<TokenType > > _precedence_table;
+		std::vector<OperatorArity> _arity_table;
+
+		AST* parse_atom(void);
 		AST* parse_application(void);
 		AST* parse_operators(unsigned int level);
 		AST* parse_type(void);
@@ -61,10 +65,6 @@ class Parser {
 		AST* parse_variable_declaration(void);
 		AST* parse_case(void);
 		AST* parse_parameter(void);
-	private:
-		Tokenizer& _tokenizer;
-		std::vector<std::vector<TokenType > > _precedence_table;
-		std::vector<OperatorArity> _arity_table;
 
 		void assert_type(TokenType t);
 		bool is_operator_at_level(TokenType t, unsigned int level);

@@ -14,3 +14,4 @@ let
       end
 in
   altura (Bin Nil 10 (Bin Nil 2 Nil))
+

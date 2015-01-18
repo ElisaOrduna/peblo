@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include "parser.h"
 
 using namespace std;
