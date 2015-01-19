@@ -52,21 +52,30 @@ Parser::Parser(Tokenizer& t) : _tokenizer(t) {
 	_arity_table[8] = OPERATOR_UNARY;
 }
 
+AST* Parser::parse_variable(void) {
+	assert_type(TOK_LOWERID);
+	AST* res = new AST();
+	res->kind = AST_VARIABLE;
+	res->token = _tokenizer.peek(); // Nombre de la variable
+	_tokenizer.next();
+	return res;
+}
+
+AST* Parser::parse_constructor(void) {
+	AST* res = new AST();
+	res->kind = AST_CONSTRUCTOR;
+	res->token = _tokenizer.peek(); // Nombre del constructor
+	_tokenizer.next();
+	return res;
+}
+
 AST* Parser::parse_atom(void) {
 	Token t = _tokenizer.peek();
 
 	if (t.type == TOK_UPPERID) {
-		AST* res = new AST();
-		res->kind = AST_CONSTRUCTOR;
-		res->token = t;
-		_tokenizer.next();
-		return res;
+		return parse_constructor();
 	} else if (t.type == TOK_LOWERID) {
-		AST* res = new AST();
-		res->kind = AST_VARIABLE;
-		res->token = t;
-		_tokenizer.next();
-		return res;
+		return parse_variable();
 	} else if (t.type == TOK_NUMBER) {
 		AST* res = new AST();
 		res->kind = AST_CONSTANT;
@@ -180,15 +189,11 @@ AST* Parser::parse_type_atom(bool allow_parameters) {
 	}
 }
 
-AST* Parser::parse_parameter(void) {
-	AST* res = new AST();
-	res->kind = AST_PARAMETER;
+void Parser::parse_parameter(AST *res) {
 	if (_tokenizer.peek().type == TOK_LPAREN) {
 		_tokenizer.next();
 
-		assert_type(TOK_LOWERID);
-		res->token = _tokenizer.peek(); // Nombre parametro
-		_tokenizer.next();
+		res->children.push_back(parse_variable());
 		
 		assert_type(TOK_COLON);
 		_tokenizer.next();
@@ -198,13 +203,9 @@ AST* Parser::parse_parameter(void) {
 		assert_type(TOK_RPAREN);
 		_tokenizer.next();
 	} else {
-		assert_type(TOK_LOWERID);
-		res->token = _tokenizer.peek(); // Nombre parametro
-		_tokenizer.next();
-
+		res->children.push_back(parse_variable());
 		res->children.push_back(NULL); // Tipo parametro
 	}
-	return res;
 }
 
 AST* Parser::parse_fun(void) {
@@ -213,14 +214,14 @@ AST* Parser::parse_fun(void) {
 
 	AST* res = new AST();
 	res->kind = AST_FUN;
-	res->children.push_back(parse_parameter());
+	parse_parameter(res);
 	res->children.push_back(NULL); // Tipo de retorno
 	res->children.push_back(NULL); // Cuerpo de la funcion
 	AST* last = res;
 	while (!is_parameter_terminator(_tokenizer.peek().type)) {
 		AST* aux = new AST();
 		aux->kind = AST_FUN;
-		aux->children.push_back(parse_parameter());
+		parse_parameter(aux);
 		aux->children.push_back(NULL); // Tipo de retorno
 		aux->children.push_back(NULL); // Cuerpo de la funcion
 		
@@ -278,9 +279,7 @@ AST* Parser::parse_constructor_declaration(void) {
 	AST* res = new AST();
 	res->kind = AST_CONSTRUCTOR_DECLARATION;
 
-	assert_type(TOK_UPPERID);
-	res->token = _tokenizer.peek();
-	_tokenizer.next();
+	res->children.push_back(parse_constructor());
 
 	while (!is_constructor_terminator(_tokenizer.peek().type)) {
 		res->children.push_back(parse_type_atom(false));		
@@ -323,10 +322,8 @@ AST* Parser::parse_variable_declaration(void) {
 	AST* res = new AST();
 	res->kind = AST_VARIABLE_DECLARATION;
 
-	assert_type(TOK_LOWERID);
-	res->token = _tokenizer.peek(); // Nombre de la variable
-	_tokenizer.next();
-		
+	res->children.push_back(parse_variable());
+
 	if (_tokenizer.peek().type == TOK_COLON) {
 		_tokenizer.next();
 		res->children.push_back(parse_type()); // Tipo de la variable
