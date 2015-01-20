@@ -1,5 +1,2 @@
+fun x => (fun x => x) + (fun x => x)
 
-let
-  type Lista = Nil | Cons Int Lista
-in
-  Cons 1 Nil

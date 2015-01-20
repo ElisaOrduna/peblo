@@ -1,23 +1,35 @@
 
 .PHONY : all clean
 
-MM_INCS=mm.h
-
 CFLAGS= -Wall -g -ggdb
 
-all : unittest parser
+all : mm_unittest main
 
-unittest : unittest.c mm.o $(MM_INCS)
-	gcc -o unittest unittest.c mm.o $(CFLAGS)
+# Compilador #
 
-parser : tokenizer.h tokenizer.cpp parser.h parser.cpp
-	g++ -o parser parser.cpp tokenizer.cpp $(CFLAGS)
+COMP_INCS=tokenizer.h parser.h environment.h ast.h rename.h
+COMP_OBJS=main.o tokenizer.o parser.o ast.o rename.o
+
+main : $(COMP_INCS) $(COMP_OBJS)
+	g++ -o main $(COMP_OBJS) $(CFLAGS)
+
+%.o : %.cpp $(COMP_INCS)
+	g++ -o $@ -c $< $(CFLAGS)
+
+# Memory manager #
+
+MM_INCS=mm.h
+
+mm_unittest : mm_unittest.c mm.o $(MM_INCS)
+	gcc -o mm_unittest mm_unittest.c mm.o $(CFLAGS)
 
 mm.o : mm.c save_registers.inc restore_registers.inc $(MM_INCS)
 	gcc -c -o mm.o mm.c $(CFLAGS)
 
 save_registers.inc restore_registers.inc : gen_save_restore_registers.py
 	python gen_save_restore_registers.py
+
+##
 
 clean :
 	rm -f *.o

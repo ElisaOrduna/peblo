@@ -3,27 +3,6 @@
 
 using namespace std;
 
-void AST::show(ostream& os, unsigned int level) const {
-	unsigned int i;
-	for (i = 0; i < level; i++) {
-		os << "  ";
-	}
-	os << "(" << kind << " " << token.type << " " << token.value;
-	for (i = 0; i < children.size(); i++) {
-		os << endl;
-		if (children[i] != NULL) { 
-			children[i]->show(os, level + 1);
-		} else {
-			unsigned int j;
-			for (j = 0; j < level + 1; j++) {
-				os << "  ";
-			}
-			os << "NULL";
-		}
-	}
-	os << ")"; 
-}
-
 Parser::Parser(Tokenizer& t) : _tokenizer(t) {
 	_precedence_table = vector<vector<TokenType> >(9);
 	_arity_table = vector<OperatorArity>(9, OPERATOR_BINARY);
@@ -472,29 +451,5 @@ AST* Parser::parse_expression(void) {
 	} else {
 		return parse_operators(0);
 	}
-}
-
-#include <fstream>
-#include <iostream>
-
-int main() {
-	ifstream input("test.txt");
-	Tokenizer tok(input);
-
-	/*
-	while (!tok.eof()) {
-		Token t = tok.peek();
-		cout << "lei <type=" << t.type << ", value=[[ " << t.value << " ]]>" << endl;
-		tok.next();
-	}
-	Token t = tok.peek();
-	cout << "lei <type=" << t.type << ", value=[[ " << t.value << " ]]>" << endl;
-	*/
-	
-	Parser p(tok);
-	p.parse_expression()->show(cout);
-	cout << endl;
-
-	return 0;
 }
 
