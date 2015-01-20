@@ -139,6 +139,15 @@ AST* Parser::parse_type(void) {
 	return res;
 }
 
+AST* Parser::parse_type_constructor(void) {
+	assert_type(TOK_UPPERID);
+	AST* res = new AST();
+	res->kind = AST_TYPE_CONSTRUCTOR;
+	res->token = _tokenizer.peek();
+	_tokenizer.next();
+	return res;
+}
+
 AST* Parser::parse_type_atom(bool allow_parameters) {
 	if (_tokenizer.peek().type == TOK_LPAREN) {
 		_tokenizer.next();
@@ -148,9 +157,9 @@ AST* Parser::parse_type_atom(bool allow_parameters) {
 		return res;
 	} else if (_tokenizer.peek().type == TOK_UPPERID) {
 		AST* res = new AST();
-		res->kind = AST_TYPE_CONSTRUCTOR;
-		res->token = _tokenizer.peek();
-		_tokenizer.next();
+		res->kind = AST_TYPE_APP;
+
+		res->children.push_back(parse_type_constructor());
 		if (allow_parameters) {
 			while (!is_type_terminator(_tokenizer.peek().type)) {
 				res->children.push_back(parse_type_atom(false));
@@ -234,12 +243,16 @@ bool is_pattern(AST* pattern) {
 }
 
 bool is_type_constructor_declaration(AST* type_constructor) {
-	if (type_constructor->kind != AST_TYPE_CONSTRUCTOR) {
+	if (type_constructor->kind != AST_TYPE_APP) {
+		return false;
+	}
+
+	if (type_constructor->children[0]->kind != AST_TYPE_CONSTRUCTOR) {
 		return false;
 	}
 
 	unsigned int i;
-	for (i = 0; i < type_constructor->children.size(); i++) {
+	for (i = 1; i < type_constructor->children.size(); i++) {
 		if (type_constructor->children[i]->kind != AST_TYPE_VAR) {
 			return false;
 		}

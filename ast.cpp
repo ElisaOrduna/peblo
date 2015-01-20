@@ -30,9 +30,9 @@ string pointer_to_string(void* ptr) {
 	return ss.str();
 }
 
-AST* make_variable_symbol(const string& name) {
+AST* make_symbol(const string& name, ASTKind symbol_kind) {
 	AST* res = new AST();
-	res->kind = AST_VARIABLE_SYMBOL;
+	res->kind = symbol_kind;
 	res->token.value = name + "@<" + pointer_to_string(res) + ">";
 	return res;
 }

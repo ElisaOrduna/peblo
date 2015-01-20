@@ -1,2 +1,6 @@
-fun x => (fun x => x) + (fun x => x)
+let
+  var x = 1
+  var x = 2
+in
+  x + 2
 

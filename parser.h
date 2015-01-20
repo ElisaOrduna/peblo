@@ -26,6 +26,7 @@ class Parser {
 		AST* parse_application(void);
 		AST* parse_operators(unsigned int level);
 		AST* parse_type(void);
+		AST* parse_type_constructor(void);
 		AST* parse_type_atom(bool allow_parameters);
 		AST* parse_fun(void);
 		AST* parse_let(void);

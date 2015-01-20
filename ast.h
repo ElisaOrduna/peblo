@@ -21,6 +21,7 @@ typedef enum {
 	AST_TYPE_CONSTRUCTOR,
 	AST_TYPE_VAR,
 	AST_TYPE_ARROW,
+	AST_TYPE_APP,
 
 	// Nodos usados en la etapa de renombre
 	AST_CONSTRUCTOR_SYMBOL,
@@ -35,6 +36,12 @@ typedef enum {
 #define AST_FUN_RETTYPE		2
 #define AST_FUN_BODY		3
 
+#define AST_VARDECL_VAR		0
+#define AST_VARDECL_VARTYPE	1
+#define AST_VARDECL_BODY	2
+
+#define AST_TYPEDECL_TYPE	0
+
 struct AST {
 	ASTKind kind;
 	Token token;
@@ -43,6 +50,6 @@ struct AST {
 	void show(std::ostream& os, unsigned int level = 0) const;
 };
 
-AST* make_variable_symbol(const std::string& name);
+AST* make_symbol(const std::string& name, ASTKind symbol_kind);
 
 #endif

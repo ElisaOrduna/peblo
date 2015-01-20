@@ -14,6 +14,7 @@ class Renamer {
 		Environment<std::string, AST*> _types;
 
 		AST* rename_fun(AST* ast);
+		AST* rename_let(AST* ast);
 		AST* rename_variable(AST* ast);
 		AST* rename_children(AST* ast);
 };
