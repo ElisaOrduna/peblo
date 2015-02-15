@@ -1,6 +1,9 @@
+
 let
-  var x = 1
-  var x = 2
+  type AB a = Nil | Bin (AB a) a (AB a)
 in
-  x + 2
+ case Bin Nil 1 Nil of
+ | Nil       => Nil
+ | Bin i r d => Bin i r d
+ end
 

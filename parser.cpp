@@ -359,6 +359,30 @@ AST* Parser::parse_let(void) {
 	return res;
 }
 
+AST* Parser::parse_case_branch(void) {
+	AST* res = new AST();
+	res->kind = AST_CASE_BRANCH;
+
+	// Patron
+	AST* pattern = parse_expression();
+	if (!is_pattern(pattern)) {
+		cerr << "Error en el case:" << endl;
+		pattern->show(cerr, 1);
+		cerr << endl;
+		cerr << "no es un patron." << endl;
+		exit(1);
+	}
+	res->children.push_back(pattern);
+
+	assert_type(TOK_FAT_ARROW);
+	_tokenizer.next();
+
+	// Resultado
+	res->children.push_back(parse_expression());
+	
+	return res;
+}
+
 AST* Parser::parse_case(void) {
 	assert_type(TOK_CASE);
 	_tokenizer.next();
@@ -372,23 +396,7 @@ AST* Parser::parse_case(void) {
 
 	while (_tokenizer.peek().type == TOK_PIPE) {
 		_tokenizer.next();
-		
-		// Patron
-		AST* pattern = parse_expression();
-		if (!is_pattern(pattern)) {
-			cerr << "Error en el case:" << endl;
-			pattern->show(cerr, 1);
-			cerr << endl;
-			cerr << "no es un patron." << endl;
-			exit(1);
-		}
-		res->children.push_back(pattern);
-
-		assert_type(TOK_FAT_ARROW);
-		_tokenizer.next();
-
-		// Resultado
-		res->children.push_back(parse_expression());
+		res->children.push_back(parse_case_branch());
 	}
 	
 	assert_type(TOK_END);

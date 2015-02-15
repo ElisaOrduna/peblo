@@ -34,6 +34,7 @@ class Parser {
 		AST* parse_constructor_declaration(void);
 		AST* parse_variable_declaration(void);
 		AST* parse_case(void);
+		AST* parse_case_branch(void);
 		void parse_parameter(AST* res);
 
 		void assert_type(TokenType t);
