@@ -27,6 +27,10 @@ typedef enum {
 	// Nodos usados en la etapa de renombre
 	AST_CONSTRUCTOR_SYMBOL,
 	AST_VARIABLE_SYMBOL,
+
+	// Usados en la etapa de tipado
+	AST_TYPE_METAVAR,
+
 } ASTKind;
 
 #define AST_APP_FUNCTION	0
@@ -56,6 +60,8 @@ struct AST {
 	std::vector<AST*> children;
 
 	void show(std::ostream& os, unsigned int level = 0) const;
+
+	friend std::ostream& operator<<(std::ostream& os, AST* ast);
 };
 
 AST* make_symbol(const std::string& name, ASTKind symbol_kind);

@@ -24,6 +24,11 @@ void AST::show(ostream& os, unsigned int level) const {
 	os << ")"; 
 }
 
+ostream& operator<<(ostream& os, AST* ast) {
+	ast->show(os);
+	return os;
+}
+
 string pointer_to_string(void* ptr) {
 	stringstream ss;
 	ss << ptr;

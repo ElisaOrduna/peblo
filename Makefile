@@ -7,8 +7,8 @@ all : mm_unittest main
 
 # Compilador #
 
-COMP_INCS=tokenizer.h parser.h environment.h ast.h rename.h
-COMP_OBJS=main.o tokenizer.o parser.o ast.o rename.o
+COMP_INCS=tokenizer.h parser.h environment.h ast.h rename.h unify.h
+COMP_OBJS=main.o tokenizer.o parser.o ast.o rename.o unify.o
 
 main : $(COMP_INCS) $(COMP_OBJS)
 	g++ -o main $(COMP_OBJS) $(CFLAGS)

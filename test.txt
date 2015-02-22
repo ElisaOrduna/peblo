@@ -1,9 +1,9 @@
 
 let
-  type AB a = Nil | Bin (AB a) a (AB a)
+  var x : Int
+  = 9
+  var y : Int -> Int
+  = 9
+  type Int = Int
 in
- case Bin Nil 1 Nil of
- | Nil       => Nil
- | Bin i r d => Bin i r d
- end
-
+  x
