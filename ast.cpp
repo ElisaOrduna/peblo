@@ -42,3 +42,19 @@ AST* make_symbol(const string& name, ASTKind symbol_kind) {
 	return res;
 }
 
+AST* make_metavar(const string& name) {
+	AST* res = new AST();
+	res->token.value = "?" + name + "@<" + pointer_to_string(res) + ">";
+	res->kind = AST_TYPE_METAVAR;
+	res->children.push_back(NULL);
+	return res;
+}
+
+AST* make_type_arrow(AST* param_type, AST* ret_type) {
+	AST* res = new AST();
+	res->kind = AST_TYPE_ARROW;
+	res->children.push_back(param_type);
+	res->children.push_back(ret_type);
+	return res;
+}
+

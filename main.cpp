@@ -4,21 +4,15 @@
 #include "tokenizer.h"
 #include "parser.h"
 #include "rename.h"
+#include "ast.h"
 #include "unify.h"
+#include "infer.h"
 
 using namespace std;
 
-AST* mk_metavar(const string& name) {
-	AST* a = new AST();
-	a->token.value = "?" + name;
-	a->kind = AST_TYPE_METAVAR;
-	a->children.push_back(NULL);
-	return a;
-}
-
 void test_unify() {
-	AST* a = mk_metavar("a");
-	AST* b = mk_metavar("b");
+	AST* a = make_metavar("a");
+	AST* b = make_metavar("b");
 
 	AST* Int = new AST();
 	Int->kind = AST_TYPE_APP;
@@ -51,11 +45,11 @@ void test_unify() {
 	cout << b << endl;
 	//
 
-	AST* alfa = mk_metavar("alfa");
-	AST* beta = mk_metavar("beta");
-	AST* gamma = mk_metavar("gamma");
-	AST* delta = mk_metavar("delta");
-	AST* epsilon = mk_metavar("epsilon");
+	AST* alfa = make_metavar("alfa");
+	AST* beta = make_metavar("beta");
+	AST* gamma = make_metavar("gamma");
+	AST* delta = make_metavar("delta");
+	AST* epsilon = make_metavar("epsilon");
 
 	AST* beta_fl_beta = new AST();
 	beta_fl_beta->kind = AST_TYPE_ARROW;
@@ -77,6 +71,18 @@ void test_unify() {
 	cout << gamma << endl;
 	cout << delta << endl;
 	cout << epsilon << endl;
+
+	//
+	AST* X = make_metavar("X");
+	AST* XflBool = new AST();
+	XflBool->kind = AST_TYPE_ARROW;
+	XflBool->children.push_back(X);
+	XflBool->children.push_back(Bool);
+	AST* Bool_XflBool = new AST();
+	Bool_XflBool->kind = AST_TYPE_APP;
+	Bool_XflBool->children.push_back(Bool);
+	Bool_XflBool->children.push_back(XflBool);
+	cout << "X === Bool (X -> Bool): " << unify(X, Bool_XflBool) << endl;
 }
 
 int main() {
@@ -97,17 +103,19 @@ int main() {
 	AST* ast = p.parse_expression();
 
 	cout << "----------------------------------------AST original" << endl;
-	ast->show(cout);
-	cout << endl;
+	cout << ast << endl;
 
 	Renamer renamer;
 	ast = renamer.rename(ast);
 	cout << "----------------------------------------AST renombrado" << endl;
-	ast->show(cout);
-	cout << endl;
+	cout << ast << endl;
 
-	cout << "----------------------------------------unificacion" << endl;
-	test_unify();
+	//cout << "----------------------------------------unificacion" << endl;
+	//test_unify();
+
+	TypeInferrer inferrer;
+	cout << "----------------------------------------Inferencia de tipos" << endl;
+	cout << inferrer.infer(ast) << endl;
 
 	return 0;
 }

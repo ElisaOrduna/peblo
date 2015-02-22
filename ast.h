@@ -65,5 +65,7 @@ struct AST {
 };
 
 AST* make_symbol(const std::string& name, ASTKind symbol_kind);
+AST* make_metavar(const std::string& name);
 
+AST* make_type_arrow(AST* param_type, AST* ret_type);
 #endif

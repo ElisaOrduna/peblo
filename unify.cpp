@@ -15,6 +15,18 @@ AST* representant(AST* t) {
 	return r;
 }
 
+bool occurs(AST* x, AST* ast) {
+	if (ast == NULL) {
+		return false;
+	}
+
+	bool res = (x == ast);	
+	for (unsigned int i = 0; i < ast->children.size(); i++) {
+		res = res || occurs(x, ast->children[i]);
+	}
+	return res;
+}
+
 bool unify(AST* t1, AST* t2) {
 	t1 = representant(t1);
 	t2 = representant(t2);
@@ -25,11 +37,15 @@ bool unify(AST* t1, AST* t2) {
 	if (t1 == t2) {
 		return true;
 	} else if (t1->kind == AST_TYPE_METAVAR) {
-		// TODO: occurs check
+		if (occurs(t1, t2)) {
+			return false;
+		}
 		t1->children[0] = t2;
 		return true;
 	} else if (t2->kind == AST_TYPE_METAVAR) {
-		//TODO: occurs check
+		if (occurs(t2, t1)) {
+			return false;
+		}
 		t2->children[0] = t1;
 		return true;
 	} else if (t1->kind == AST_TYPE_ARROW && t2->kind == AST_TYPE_ARROW) {
